@@ -709,6 +709,150 @@ def plot_flight_timeseries(
     return fig
 
 
+def _hourly_mean_utilisation(df: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate 15-min utilisation to hourly mean; impute missing hours with 0."""
+    d = df.copy()
+    d["HOUR"] = d["VISIT_SLOT"].dt.floor("h")
+    hourly = d.groupby("HOUR", as_index=False)["UTILISATION"].mean()
+    if hourly.empty:
+        return hourly
+    full = pd.DataFrame({
+        "HOUR": pd.date_range(hourly["HOUR"].min(), hourly["HOUR"].max(), freq="h"),
+    })
+    hourly = full.merge(hourly, on="HOUR", how="left").fillna({"UTILISATION": 0})
+    return hourly
+
+
+def _hourly_scheduled_seats_with_rolling(
+    df_sched: pd.DataFrame,
+    seat_col: str,
+    upcoming_hour_for_count: int,
+) -> pd.DataFrame:
+    """Match flight tab: hourly sum of seats per cabin, then trailing rolling sum over N hours."""
+    df = df_sched.copy()
+    df["HOUR"] = df["SLOT_START"].dt.floor("h")
+    hourly = df.groupby("HOUR", as_index=False)[seat_col].sum()
+    if hourly.empty:
+        return hourly
+    full = pd.DataFrame({
+        "HOUR": pd.date_range(hourly["HOUR"].min(), hourly["HOUR"].max(), freq="h"),
+    })
+    hourly = full.merge(hourly, on="HOUR", how="left").fillna({seat_col: 0})
+    hourly[seat_col] = hourly[seat_col].astype(int)
+    hourly = hourly.copy()
+    hourly[seat_col] = hourly[seat_col].rolling(
+        window=upcoming_hour_for_count, min_periods=1
+    ).sum()
+    return hourly
+
+
+def plot_combined_utilisation_vs_scheduled_seats(
+    df_util: pd.DataFrame,
+    df_sched: pd.DataFrame | None,
+    seat_col: str,
+    cabin_label: str,
+    capacity: int,
+    title: str,
+    upcoming_hour_for_count: int = 3,
+) -> go.Figure:
+    """
+    Single chart: outlet utilisation rate (left axis) vs scheduled departure seats
+    (right axis), both as hourly time series. Scheduled seats use the same trailing
+    rolling-hour aggregation as the Departure Flights tab.
+    """
+    hourly_util = _hourly_mean_utilisation(df_util)
+    fig = go.Figure()
+
+    if not hourly_util.empty:
+        fig.add_trace(go.Scatter(
+            x=hourly_util["HOUR"],
+            y=hourly_util["UTILISATION"],
+            mode="lines",
+            name="Outlet utilisation rate",
+            line=dict(color=COLORS["primary"], width=2),
+            yaxis="y1",
+            hovertemplate="<b>%{x}</b><br>Utilisation: %{y:.1%}<extra></extra>",
+        ))
+
+    has_sched = (
+        df_sched is not None
+        and not df_sched.empty
+        and seat_col in df_sched.columns
+    )
+    if has_sched:
+        hourly_seats = _hourly_scheduled_seats_with_rolling(
+            df_sched, seat_col, upcoming_hour_for_count
+        )
+        if not hourly_seats.empty:
+            fig.add_trace(go.Scatter(
+                x=hourly_seats["HOUR"],
+                y=hourly_seats[seat_col],
+                mode="lines",
+                name=f"Scheduled {cabin_label} seats ({upcoming_hour_for_count}h roll-up)",
+                line=dict(color=COLORS["secondary"], width=2, dash="dash"),
+                yaxis="y2",
+                hovertemplate=(
+                    "<b>%{x}</b><br>Scheduled " + cabin_label + " seats: %{y:,}<extra></extra>"
+                ),
+            ))
+
+    util_max_axis = (
+        max(hourly_util["UTILISATION"].max() * 1.1, 1.05)
+        if not hourly_util.empty else 1.05
+    )
+
+    fig.update_layout(
+        title=title,
+        xaxis=dict(title="Date / Hour"),
+        yaxis=dict(
+            title="Utilisation rate",
+            tickformat=".0%",
+            side="left",
+            range=[0, util_max_axis],
+            showgrid=True,
+            gridcolor="rgba(200,200,200,0.3)",
+        ),
+        yaxis2=dict(
+            title=f"Scheduled {cabin_label} seats (rolling)",
+            side="right",
+            overlaying="y",
+            rangemode="tozero",
+            showgrid=False,
+            tickformat=",",
+        ),
+        hovermode="x unified",
+        height=520,
+        legend=dict(orientation="h", yanchor="bottom", y=1.06, xanchor="left", x=0),
+    )
+
+    if not hourly_util.empty:
+        fig.add_hline(
+            y=1.0, line_dash="dot",
+            line=dict(color="red", width=1.5),
+            annotation_text=f"100% capacity ({capacity} seats)",
+            annotation_position="top left",
+            annotation_font=dict(color="red"),
+        )
+        fig.add_hline(
+            y=0.7, line_dash="dot",
+            line=dict(color="orange", width=1.5),
+            annotation_text=f"70% threshold ({int(capacity * 0.7)} seats)",
+            annotation_position="bottom right",
+            annotation_font=dict(color="orange"),
+        )
+
+    if hourly_util.empty and not has_sched:
+        fig.update_layout(
+            annotations=[dict(
+                text="No utilisation or schedule data to plot",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False,
+                font=dict(size=14),
+            )],
+        )
+    return fig
+
+
 # ---------------------------------------------------------------------------
 # Main app
 # ---------------------------------------------------------------------------
@@ -927,7 +1071,11 @@ def main():
     st.markdown("---")
 
     # ---- Tabs ----------------------------------------------------------
-    tab_util, tab_flights = st.tabs(["📊 Utilisation", "✈️ Departure Flights"])
+    tab_util, tab_flights, tab_combined = st.tabs([
+        "📊 Utilisation",
+        "✈️ Departure Flights",
+        "🔗 Combined view",
+    ])
 
     # ================================================================
     # TAB 1 – Utilisation
@@ -1036,6 +1184,58 @@ def main():
                 display_cols = ["SLOT_START", "DEP_AIRPORT", "DEP_TERMINAL", "DEP_FLIGHT_COUNT"]
                 available = [c for c in display_cols if c in df_flights.columns]
                 st.dataframe(df_flights[available], use_container_width=True)
+
+    # ================================================================
+    # TAB 3 – Combined: utilisation vs scheduled seats
+    # ================================================================
+    with tab_combined:
+        st.markdown(
+            '<div class="sub-header">🔗 Outlet utilisation vs scheduled departure seats</div>',
+            unsafe_allow_html=True,
+        )
+        st.caption(
+            "Hourly mean lounge utilisation (left axis) compared with scheduled seat volume "
+            "from OAG schedule snapshots (right axis), using the same trailing rolling window "
+            "as the Departure Flights tab."
+        )
+
+        if df_scheduled is None or df_scheduled.empty:
+            st.warning(
+                "No scheduled seat data for this outlet or airport — only utilisation is available below."
+            )
+
+        cabin_opts = config.get("cabin_classes", ["Total"])
+        cc1, cc2 = st.columns(2)
+        with cc1:
+            comb_cabin = st.selectbox("Cabin class (scheduled seats)", cabin_opts, key="comb_cabin")
+        comb_cabin_col = comb_cabin.upper()
+        comb_cabin_col = (
+            f"{comb_cabin_col}_CLASS" if comb_cabin_col != "TOTAL" else comb_cabin_col
+        )
+        comb_cabin_col = f"{comb_cabin_col}_SEATS"
+        with cc2:
+            comb_upcoming_h = st.slider(
+                "Rolling hours (scheduled seats)",
+                min_value=1,
+                max_value=5,
+                value=config.get("upcoming_hour_for_flight_count", 3),
+                key="comb_upcoming_h",
+                help="Trailing sum of scheduled seats over this many hours (matches Departure Flights).",
+            )
+
+        fig_comb = plot_combined_utilisation_vs_scheduled_seats(
+            df,
+            df_scheduled,
+            seat_col=comb_cabin_col,
+            cabin_label=comb_cabin,
+            capacity=capacity,
+            title=(
+                f"{selected_lounge} @ {airport_code or '—'} — Utilisation vs scheduled {comb_cabin} seats "
+                f" | dwell={dwell_time_mins} min | roll-up={comb_upcoming_h} h"
+            ),
+            upcoming_hour_for_count=comb_upcoming_h,
+        )
+        st.plotly_chart(fig_comb, use_container_width=True)
 
 
 if __name__ == "__main__":
