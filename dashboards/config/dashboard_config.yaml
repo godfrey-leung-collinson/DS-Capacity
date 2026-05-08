@@ -1,0 +1,72 @@
+# =============================================================================
+# DS-Capacity Dashboard Configuration
+# =============================================================================
+
+# SQL template paths (relative to SQL_templates/ directory)
+sql_templates:
+  lounge_info:          "get_lounge_info.sql"
+  hourly_visits:        "visits/get_interval_visits_3months.sql"
+  scheduled_seats:      "flights/counts_interval_schedule_flights_selected_terminal_by_hour.sql"
+  historical_flights:   "flights/counts_interval_historical_flights_selected_terminal_by_hour.sql"
+#  flight_counts:    "flights/counts_interval_historical_flights_selected_terminal_by_hour.sql"
+
+
+target_lounge_codes:
+  - "AMS2"
+  - "ZRH4"
+  - "HEL5"
+  - "SAN10"
+  - "AMS"
+  - "ORD10"
+  - "COP2"
+  - "SYD16L"
+  - "YYC3"
+
+cabin_classes:
+  - "Total"
+  - "Economy"
+#  - "Economy Plus"
+  - "Premium Economy"
+  - "Business"
+  - "First"
+
+# Optional capacity overrides per lounge (seats)
+capacity_overrides: {}
+
+# Default parameters
+defaults:
+  # Default dwell time in minutes
+  dwell_time_mins: 60
+  # Look-back period in months
+  lookback_months: 3
+  # Visit data lag (days behind today due to processing latency)
+  visit_data_lag_days: 6
+  # OAG flight service type filter ('J' = scheduled passenger)
+  flight_service_type: "J"
+
+
+# upcoming flight/scheduled seat count
+upcoming_hour_for_flight_count: 3
+
+# Snowflake connection
+snowflake:
+  database: "STAGING_QUALITY"
+  is_run_locally: true
+  account: "a7074875169861-prod.privatelink"
+
+# Query tags
+query_tags:
+  project_tag:
+    name: "ds_capacity"
+    stage: "dashboard"
+    environment: "dev"
+
+# Visualization colours (Collinson brand)
+visualization:
+  colors:
+    primary: "#ce0058"
+    secondary: "#003865"
+    aqua: "#7ce0d3"
+    light_blue: "#007dba"
+    maroon: "#96172e"
+
