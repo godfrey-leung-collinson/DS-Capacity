@@ -8,6 +8,9 @@ venv/*
 *.DS_Store
 *.pyc
 
+# processed data (local)
+data/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
