@@ -1,0 +1,20 @@
+visit_extraction_start_date: '2023-01-01'
+visit_latency: 5 # in days
+name: 'test'
+
+start_date: '2026-01-08'
+end_date: '2026-04-01'  # exclusive
+
+paths:
+ sql_template:
+  get_15min_visit: 'SQL_templates/visits/extract_15min_interval_non-null_visits.sql'
+#  tracking_visit: 'sql/get_daily_visits_tracking_via_snowflake_selected_country.sql'
+#  enriched_visit: 'sql/get_daily_enriched_visit_via_snowflake_selected_country.sql'
+ export_directory: 'visits'    # for local run only
+
+filename_base: 'pp_consolidated_visit_15min'
+#s3_folder:
+# visit: "visits"
+# active_airports: "active_airports"
+# site_counts: "site_counts"
+
