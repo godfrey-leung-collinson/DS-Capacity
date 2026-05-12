@@ -111,7 +111,7 @@ SELECT
     f.depapt                               AS dep_airport,
     f.depterm                              AS dep_terminal,
     f.snapshot_date                        AS oag_snapshot_date,
-    COUNT(f.flight_key_id)                 AS dep_flight_count,
+    COUNT(DISTINCT f.flight_key_id)        AS dep_flight_count,
     SUM(f.TOTAL_SEATS)                     AS total_seats,
     SUM(f.FIRST_CLASS_SEATS)               AS first_class_seats,
     SUM(f.BUSINESS_CLASS_SEATS)            AS business_class_seats,
