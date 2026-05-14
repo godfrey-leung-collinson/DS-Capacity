@@ -1,0 +1,24 @@
+## Part I: utilisation rate computation
+dwell_time: 60   # in min
+visit_interval: 15   # in min
+
+
+## Part II: airport traffic/index computation
+relevant_upcoming_hours: 3   # in hour. for computing "upcoming traffic" at a given datetime, how many hours of forwarding looking scheduled flights are relevant
+
+
+paths:
+ data:
+  outlet_info: 'data/outlet_info/psf_outlet_info_2026-05-13.csv'
+  visit: 'data/visits'
+  historical_flights: 'data/historical_flights'
+  scheduled_flights: 'data/scheduled_flights'
+
+ export_directory: 'data/processed'    # for local run only
+
+filename_base:
+ full_utilisation: 'outlet_hourly_utilisation_rate'
+ utilisation_summary: 'outlet_utilisation_summary'
+ excel: 'air_traffic_summary'  # 'outlet_utilisation_and_traffic_summary'
+
+
