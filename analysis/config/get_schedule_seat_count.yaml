@@ -1,0 +1,11 @@
+start_date: '2026-01-01'
+end_date: '2026-04-01'  # inclusive
+
+flight_service: 'J'
+
+paths:
+ sql_template:
+  get_15min_flights: 'SQL_templates/flights/extract_15min_interval_non-null_scheduled_seats_and_flights.sql'
+ export_directory: 'scheduled_flights'    # for local run only
+
+filename_base: 'oag_schedule_15min'
