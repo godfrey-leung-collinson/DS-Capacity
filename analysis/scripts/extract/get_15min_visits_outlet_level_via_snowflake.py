@@ -26,13 +26,15 @@ logger.setLevel(logging.INFO)
 warnings.filterwarnings("ignore")
 
 
-
 def update_sql_for_extracting_15min_visits(
-    sql_filepath: str, start: str, end: str,
+    sql_filepath: str,
+    start: str,
+    end: str,
 ) -> pd.core.frame.DataFrame:
     """
-    Updating the SQL template for extracting visits
-     from Snowflake PPass tracking visit table
+    Updating the SQL template for extracting 15-min non-zero visits
+     from Snowflake based on the given period of interest
+     (start and end datetime)
 
     Parameters
     ----------
@@ -59,9 +61,7 @@ def update_sql_for_extracting_15min_visits(
     return sql_query
 
 
-def fetch_15min_visit(
-    data_dir: Path, code_dir: Path
-) -> Path:
+def fetch_15min_visit(data_dir: Path, code_dir: Path) -> Path:
     """
     Extracting 15-min interval visit counts per outlet from Snowflake
     (consolidated visit) and exporting the results to a local directory
@@ -78,9 +78,7 @@ def fetch_15min_visit(
     try:
         start_time = time.time()
 
-        logger.info(
-            "Starting the ETL job of extracting 15-min visits per outlets ..."
-        )
+        logger.info("Starting the ETL job of extracting 15-min visits per outlets ...")
 
         # Load project tags
         with open(directory / "config/common_config.yaml", "r") as f:
@@ -151,7 +149,9 @@ def fetch_15min_visit(
         output_parent_dir = data_dir / f"{export_dir}"
 
         intermediate_end_date = dt.date.fromisoformat(start_date)
-        days_to_run = (dt.date.fromisoformat(end_date) - dt.date.fromisoformat(start_date)).days
+        days_to_run = (
+            dt.date.fromisoformat(end_date) - dt.date.fromisoformat(start_date)
+        ).days
 
         full_visit_df = pd.DataFrame()
         for _ in range(days_to_run):
@@ -163,7 +163,9 @@ def fetch_15min_visit(
             temp_end_date = intermediate_end_date_str
 
             logger.info(
-                "Extracting 15-min visits per outlets from {} to {} ...".format(start_date, temp_end_date)
+                "Extracting 15-min visits per outlets from {} to {} ...".format(
+                    start_date, temp_end_date
+                )
             )
 
             final_sql_query = update_sql_for_extracting_15min_visits(
@@ -215,8 +217,6 @@ def fetch_15min_visit(
 
 if __name__ == "__main__":
 
-    visit_output_filepath = (
-        fetch_15min_visit(
-            directory / "data", directory / "analysis"
-        )
+    visit_output_filepath = fetch_15min_visit(
+        directory / "data", directory / "analysis"
     )
