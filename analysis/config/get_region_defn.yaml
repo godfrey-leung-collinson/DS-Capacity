@@ -1,0 +1,6 @@
+paths:
+ sql_template:
+  get_region_defn: 'SQL_templates/reference/get_country_region_defn.sql'
+ export_directory: 'reference'    # for local run only
+
+filename_base: 'raw_region_defn'
