@@ -1,0 +1,14 @@
+project_tag:
+  name: capacity_management
+  stage: analysis
+#  environment: prod
+  environment: dev
+
+# Plotting
+cg_colors:
+  actual: '#003865'  # dark blue, navy
+  forecast: '#e89cae'  # pink
+  last_year: '#007dba'  # light blue
+  mean: '#7ce0d3'  # aqua (cyan)
+  other_1: '#ce0058'  # dark red
+  other_2: '#96172e'  # brown
