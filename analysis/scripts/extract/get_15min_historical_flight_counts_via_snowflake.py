@@ -3,7 +3,6 @@ import logging
 import os
 from pathlib import Path
 import time
-from typing import List
 import warnings
 
 import pandas as pd
@@ -12,7 +11,6 @@ import snowflake.connector  # For local run only
 import yaml
 
 # (TODO) NOTE: need to set python path environment in order to import from parent directory
-# from exc import InvalidParameters
 # from helpers import SnowflakeManager
 
 
@@ -26,13 +24,13 @@ logger.setLevel(logging.INFO)
 warnings.filterwarnings("ignore")
 
 
-
 def update_sql_for_extracting_15min_historical_flight(
     sql_filepath: str, start: str, end: str, service_type: str = "J"
 ) -> pd.core.frame.DataFrame:
     """
-    Updating the SQL template for extracting visits
-     from Snowflake PPass tracking visit table
+    Updating the SQL template for extracting 15-min interval historical flight counts (non-null/zero only)
+    per airport and terminal in the given period of interest,
+    and return the final SQL query string to be executed
 
     Parameters
     ----------
@@ -42,6 +40,9 @@ def update_sql_for_extracting_15min_historical_flight(
         start datetime of the period of interest
     end
         end datetime of the period of interest
+    service_type
+        flight service type to consider.
+        Default = "J", i.e. normal commercial passenger flight services
 
     Returns
     -------
@@ -60,12 +61,11 @@ def update_sql_for_extracting_15min_historical_flight(
     return sql_query
 
 
-def fetch_15min_historical_flights(
-    data_dir: Path, code_dir: Path
-) -> Path:
+def fetch_15min_historical_flights(data_dir: Path, code_dir: Path) -> Path:
     """
-    Extract the daily visits by lounge and inventory type for
-    a selected list of countries
+    Extract the 15-min interval historical flight counts (non-null/zero only) per airport
+    (and terminal) in the given period of interest from Snowflake (OAG), and export the results
+    to a local (EC2) directory as a CSV file
 
     Parameters
     ----------
@@ -73,11 +73,6 @@ def fetch_15min_historical_flights(
         local (EC2) directory path to export the extracted data to
     code_dir
         local directory where the config files are stored
-
-    Returns
-    -------
-        file paths where the extracted visits & corresponding deduced
-        active airports and site counts are exported to
 
     """
 
@@ -87,6 +82,12 @@ def fetch_15min_historical_flights(
         logger.info(
             "Starting the ETL job of extracting 15-min historical departure flights per airport and terminal ..."
         )
+
+        # Load project tags
+        with open(directory / "config/common_config.yaml", "r") as f:
+            common_config = yaml.safe_load(f)
+
+        project_tags = common_config["project_tag"]
 
         # Load parent main config
         with open(code_dir / "config/get_historical_flights.yaml", "r") as f:
@@ -112,6 +113,7 @@ def fetch_15min_historical_flights(
             authenticator="externalbrowser",
             warehouse=os.environ["WAREHOUSE"],
             database=os.environ["DATABASE"],
+            session_parameters=project_tags,
         )
         cur = snow_conn.cursor()
 
@@ -152,8 +154,12 @@ def fetch_15min_historical_flights(
         output_parent_dir = data_dir / f"{export_dir}"
 
         intermediate_end_date = dt.date.fromisoformat(start_date)
-        days_to_run = (dt.date.fromisoformat(end_date) - dt.date.fromisoformat(start_date)).days
-        days_to_run = days_to_run + 1   # NOTE: this is to capture the overnight departure flights as well for count upcoming flights next
+        days_to_run = (
+            dt.date.fromisoformat(end_date) - dt.date.fromisoformat(start_date)
+        ).days
+        days_to_run = (
+            days_to_run + 1
+        )  # NOTE: this is to capture the overnight departure flights as well for count upcoming flights next
 
         full_historical_flight_df = pd.DataFrame()
         for _ in range(days_to_run):
@@ -163,7 +169,9 @@ def fetch_15min_historical_flights(
             temp_end_date = intermediate_end_date_str
 
             logger.info(
-                "Extracting 15-min historical departure flight counts per airport and terminal from {} to {} ...".format(start_date, temp_end_date)
+                "Extracting 15-min historical departure flight counts per airport and terminal from {} to {} ...".format(
+                    start_date, temp_end_date
+                )
             )
 
             final_sql_query = update_sql_for_extracting_15min_historical_flight(
@@ -173,11 +181,15 @@ def fetch_15min_historical_flights(
             cur.execute(final_sql_query)
             temp_flight_df = cur.fetch_pandas_all()
 
-            full_historical_flight_df = pd.concat([full_historical_flight_df, temp_flight_df])
+            full_historical_flight_df = pd.concat(
+                [full_historical_flight_df, temp_flight_df]
+            )
 
             start_date = intermediate_end_date_str
 
-        full_historical_flight_df.sort_values(by=["AIRPORT_CODE", "TERMINAL", "VISIT_SLOT"], inplace=True)
+        full_historical_flight_df.sort_values(
+            by=["AIRPORT_CODE", "TERMINAL", "VISIT_SLOT"], inplace=True
+        )
         full_historical_flight_df.reset_index(drop=True, inplace=True)
 
         print(full_historical_flight_df.head())
@@ -193,7 +205,6 @@ def fetch_15min_historical_flights(
 
         # export the results to local
         full_historical_flight_df.to_csv(
-            # the file is saved in the EC2 instance of the SageMaker used for the processing
             output_file_path,
             index=False,
         )
@@ -216,10 +227,6 @@ def fetch_15min_historical_flights(
 
 if __name__ == "__main__":
 
-    historical_flights_output_filepath = (
-        fetch_15min_historical_flights(
-            directory / "data", directory / "analysis"
-        )
+    historical_flights_output_filepath = fetch_15min_historical_flights(
+        directory / "data", directory / "analysis"
     )
-
-    print(historical_flights_output_filepath)
