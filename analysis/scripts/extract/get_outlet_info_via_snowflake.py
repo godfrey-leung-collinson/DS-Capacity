@@ -9,7 +9,6 @@ import snowflake.connector  # For local run only
 import yaml
 
 # (TODO) NOTE: need to set python path environment in order to import from parent directory
-# from exc import InvalidParameters
 # from helpers import SnowflakeManager
 
 
@@ -127,7 +126,6 @@ def fetch_outlet_info(data_dir: Path, code_dir: Path) -> Path:
 
         # export the results to local
         outlet_info_df.to_csv(
-            # the file is saved in the EC2 instance of the SageMaker used for the processing
             output_file_path,
             index=False,
         )

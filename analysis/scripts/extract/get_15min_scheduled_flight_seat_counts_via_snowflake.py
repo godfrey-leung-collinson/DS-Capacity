@@ -204,7 +204,6 @@ def fetch_15min_scheduled_flights(data_dir: Path, code_dir: Path) -> Path:
 
         # export the results to local
         full_scheduled_flight_df.to_csv(
-            # the file is saved in the EC2 instance of the SageMaker used for the processing
             output_file_path,
             index=False,
         )

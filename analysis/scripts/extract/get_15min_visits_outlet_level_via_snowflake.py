@@ -63,8 +63,8 @@ def fetch_15min_visit(
     data_dir: Path, code_dir: Path
 ) -> Path:
     """
-    Extract the daily visits by lounge and inventory type for
-    a selected list of countries
+    Extracting 15-min interval visit counts per outlet from Snowflake
+    (consolidated visit) and exporting the results to a local directory
 
     Parameters
     ----------
@@ -72,11 +72,6 @@ def fetch_15min_visit(
         local (EC2) directory path to export the extracted data to
     code_dir
         local directory where the config files are stored
-
-    Returns
-    -------
-        file paths where the extracted visits & corresponding deduced
-        active airports and site counts are exported to
 
     """
 
@@ -86,6 +81,12 @@ def fetch_15min_visit(
         logger.info(
             "Starting the ETL job of extracting 15-min visits per outlets ..."
         )
+
+        # Load project tags
+        with open(directory / "config/common_config.yaml", "r") as f:
+            common_config = yaml.safe_load(f)
+
+        project_tags = common_config["project_tag"]
 
         # Load parent main config
         with open(code_dir / "config/get_outlet_visit.yaml", "r") as f:
@@ -109,6 +110,7 @@ def fetch_15min_visit(
             authenticator="externalbrowser",
             warehouse=os.environ["WAREHOUSE"],
             database=os.environ["DATABASE"],
+            session_parameters=project_tags,
         )
         cur = snow_conn.cursor()
 
@@ -191,7 +193,6 @@ def fetch_15min_visit(
 
         # export the results to local
         full_visit_df.to_csv(
-            # the file is saved in the EC2 instance of the SageMaker used for the processing
             output_file_path,
             index=False,
         )
@@ -219,5 +220,3 @@ if __name__ == "__main__":
             directory / "data", directory / "analysis"
         )
     )
-
-    print(visit_output_filepath)
