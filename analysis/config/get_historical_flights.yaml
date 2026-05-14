@@ -1,7 +1,3 @@
-visit_extraction_start_date: '2023-01-01'
-visit_latency: 5 # in days
-name: 'test'
-
 start_date: '2026-01-01'
 end_date: '2026-01-08'  # inclusive
 
@@ -10,13 +6,6 @@ flight_service: 'J'
 paths:
  sql_template:
   get_15min_flights: 'SQL_templates/flights/extract_15min_interval_non-null_historical_flights.sql'
-#  tracking_visit: 'sql/get_daily_visits_tracking_via_snowflake_selected_country.sql'
-#  enriched_visit: 'sql/get_daily_enriched_visit_via_snowflake_selected_country.sql'
  export_directory: 'historical_flights'    # for local run only
 
 filename_base: 'oag_actual_15min'
-#s3_folder:
-# visit: "visits"
-# active_airports: "active_airports"
-# site_counts: "site_counts"
-
