@@ -1,5 +1,5 @@
 -- ============================================================================
--- 15-Minute Interval Visit Count Extraction Query (Past 3 Months)
+-- 15-Minute Interval Visit Count Extraction Query
 -- ============================================================================
 -- Purpose: Count visits per 15-min interval and outlet
 -- Date Range: {start_datetime} to {end_datetime} (exclusive)
@@ -9,7 +9,8 @@
 WITH deduplicate_visits AS (
     SELECT
         VISIT_ID,
-        OUTLET_ID AS outlet_code,
+        --- TEMP, ADHOC FIX: ensure all outlet codes are upper case (TO check with data engineers why such issue happen)
+        UPPER(OUTLET_ID) AS outlet_code,
         EXPERIENCE_DATE AS visit_start,
 --        SUM(MEMBER_COUNT + GUEST_COUNT) AS total_visits,
         MEMBER_COUNT,
