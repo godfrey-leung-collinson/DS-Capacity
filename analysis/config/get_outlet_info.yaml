@@ -1,0 +1,6 @@
+paths:
+ sql_template:
+  get_outlet_info: 'SQL_templates/inventory/get_all_lounge_info.sql'
+ export_directory: 'outlet_info'    # for local run only
+
+filename_base: 'psf_outlet_info'
